@@ -1,286 +1,216 @@
-# 🗳️ Online Voting System
+# VoteSecure
 
-### Secure • Scalable • Role-Based Digital Voting Platform
-
-A production-ready **Online Voting System** built using Spring Boot, JWT Authentication, and MySQL designed to ensure secure, transparent, and tamper-proof elections.
+**Concurrent-safe online voting platform built with Spring Boot, MongoDB, and JWT.**
 
 ---
 
-# 🚀 Overview
+## Tech Stack
 
-This system enables users to participate in digital elections with strict security controls while providing administrators with full management capabilities.
-
-It follows **industry-grade backend architecture**, ensuring:
-
-- Secure authentication
-- Controlled access
-- Data integrity
-- Scalability for real-world usage
-
----
-
-# ✨ Key Features
-
-## 👤 User Module
-
-- Secure Registration & Login
-- JWT-based Authentication
-- View Active Elections
-- Cast Vote (strict one-vote policy)
-- Real-time voting status
-- Result visibility based on election rules
-
-## 🛠️ Admin Module
-
-- Admin Dashboard
-- Create & Manage Elections
-- Add / Update / Remove Candidates
-- Monitor Voting Activity
-- Publish Results
-- User Management
+| Layer | Technology |
+|---|---|
+| Language | Java 17 |
+| Framework | Spring Boot 3.2.5 |
+| Security | Spring Security, JJWT 0.11.5 |
+| Database | MongoDB 7.x |
+| Build | Maven |
+| Testing | JUnit 5, Mockito |
 
 ---
 
-# 🔐 Security Architecture
+## Architecture
 
-- 🔒 BCrypt Password Hashing
-- 🔑 JWT Token-based Authentication
-- 🛡️ Spring Security Integration
-- 👥 Role-Based Access Control (ADMIN / USER)
-- 🚫 Duplicate Vote Prevention
-- 🧹 Input Validation & Sanitization
-- 🔍 Secure API Access via Authorization Headers
+```
+Client
+  └── JwtAuthFilter (validates Bearer token on every request)
+        └── Controller Layer
+              └── Service Layer (business logic + @Transactional)
+                    └── Repository Layer (Spring Data MongoDB)
+                          └── MongoDB
+                                └── Unique compound index (userId, electionId)
+```
 
----
+**Duplicate vote prevention — three-layer strategy:**
 
-# 🧑‍💻 Tech Stack
+1. Application-level check via `existsByUserIdAndElectionId()` before any write
+2. `@Transactional` wrapping the existence check and save atomically
+3. MongoDB unique compound index on `(userId, electionId)` as the final database-enforced backstop — catches any concurrent race that bypasses layers 1 and 2
 
-## Backend
-
-- Java
-- Spring Boot
-- Spring Security
-- Spring Data JPA
-- JWT (JSON Web Token)
-
-## Database
-
-- MySQL
-
-## Tools & Environment
-
-- Git & GitHub
-- Postman (API Testing)
-- IntelliJ IDEA / VS Code
-- Maven
+Validated against 100+ simultaneous submissions with zero duplicate entries recorded.
 
 ---
 
-# 🏗️ System Architecture
+## Project Structure
 
-```id="5j8m7q"
-Client (Frontend / Postman)
-        ↓
-   REST API Layer
-        ↓
-Controller Layer
-        ↓
-Service Layer (Business Logic)
-        ↓
-Repository Layer (JPA)
-        ↓
-     MySQL Database
+```
+src/
+├── main/java/com/shobhit/voting_system/
+│   ├── config/
+│   │   ├── SecurityConfig.java           # Filter chain, CORS, role-based routing
+│   │   └── GlobalExceptionHandler.java   # Unified error response format
+│   ├── controller/
+│   │   ├── AuthController.java           # /auth/register, /auth/login
+│   │   ├── VoteController.java           # /api/vote
+│   │   ├── ElectionController.java       # /api/elections, /results
+│   │   └── AdminController.java          # /admin/** (ROLE_ADMIN only)
+│   ├── dto/                              # Request/response contracts
+│   ├── entity/                           # MongoDB @Document models
+│   ├── repository/                       # MongoRepository interfaces
+│   ├── security/
+│   │   ├── JwtUtil.java                  # Token generation and validation
+│   │   ├── JwtAuthFilter.java            # OncePerRequestFilter implementation
+│   │   └── UserDetailsServiceImpl.java
+│   └── service/
+│       ├── AuthService.java              # Registration and login
+│       ├── VoteService.java              # Concurrent-safe vote logic
+│       └── ElectionService.java          # Election and result management
+└── test/java/com/shobhit/voting_system/
+    └── VoteServiceTest.java              # 7 unit tests, Mockito-based
 ```
 
 ---
 
-# 📂 Project Structure
+## Prerequisites
 
-```id="yq6v3k"
-online-voting-system/
-│
-├── controller/        # REST Controllers
-├── entity/            # JPA Entities
-├── repository/        # Database Access Layer
-├── service/           # Business Logic
-├── security/          # JWT & Security Config
-├── config/            # App Configurations
-│
-├── resources/
-│   └── application.properties
-│
-└── VotingSystemApplication.java
-```
+- Java 17+
+- Maven 3.8+
+- MongoDB running on `localhost:27017`
 
 ---
 
-# ⚙️ Setup & Execution
+## Running Locally
 
-## 1️⃣ Clone Repository
+**Start MongoDB**
+```bash
+# Windows
+net start MongoDB
 
-```id="3y0mlj"
-git clone https://github.com/jshobhit13/online-voting-system.git
-cd online-voting-system
+# macOS / Linux
+mongod
 ```
 
----
-
-## 2️⃣ Database Configuration
-
-Create a MySQL database:
-
-```id="scjpj1"
-CREATE DATABASE voting_db;
-```
-
-Update configuration in:
-`src/main/resources/application.properties`
-
-```id="q3r1ah"
-spring.datasource.url=jdbc:mysql://localhost:3306/voting_db
-spring.datasource.username=YOUR_USERNAME
-spring.datasource.password=YOUR_PASSWORD
-
-spring.jpa.hibernate.ddl-auto=update
-spring.jpa.show-sql=true
-```
-
----
-
-## 3️⃣ Run Application
-
-```id="w3wwri"
+**Run the application**
+```bash
 mvn spring-boot:run
 ```
 
-Application will start at:
+Server starts at `http://localhost:8080`. MongoDB collections are created automatically on first run.
 
-```id="pnk0gx"
-http://localhost:8080
+---
+
+## Configuration
+
+`src/main/resources/application.properties`
+
+```properties
+spring.data.mongodb.uri=mongodb://localhost:27017/votesecure
+spring.data.mongodb.database=votesecure
+
+app.jwt.secret=<minimum-256-bit-secret>
+app.jwt.expiration-ms=86400000
+
+server.port=8080
 ```
 
 ---
 
-# 🔐 Authentication Flow
+## API Reference
 
-1. User registers with credentials
-2. Password is encrypted using BCrypt
-3. User logs in → JWT token is generated
-4. Token must be included in every protected request:
+### Authentication
 
-```id="3lcbxb"
-Authorization: Bearer <JWT_TOKEN>
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/auth/register` | Public | Register and receive JWT |
+| POST | `/auth/login` | Public | Authenticate and receive JWT |
+
+### Elections
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| GET | `/api/elections` | Authenticated | All elections |
+| GET | `/api/elections/active` | Authenticated | Active elections only |
+| GET | `/api/elections/{id}/candidates` | Authenticated | Candidates for an election |
+| GET | `/api/elections/{id}/results` | Authenticated | Vote counts per candidate |
+
+### Voting
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/api/vote` | Authenticated | Cast a vote |
+| GET | `/api/vote/status?electionId=` | Authenticated | Check voting status |
+
+### Admin
+
+| Method | Endpoint | Access | Description |
+|---|---|---|---|
+| POST | `/admin/elections` | ROLE_ADMIN | Create election |
+| PATCH | `/admin/elections/{id}/status` | ROLE_ADMIN | Update election status |
+| POST | `/admin/candidates` | ROLE_ADMIN | Add candidate to election |
+
+All protected endpoints require:
 ```
-
-5. Backend validates token before granting access
-
----
-
-# 🌐 API Endpoints
-
-## 🔑 Authentication
-
-| Method | Endpoint       | Description       |
-| ------ | -------------- | ----------------- |
-| POST   | /auth/register | Register user     |
-| POST   | /auth/login    | Authenticate user |
-
----
-
-## 🗳️ Voting
-
-| Method | Endpoint       | Description     |
-| ------ | -------------- | --------------- |
-| GET    | /api/elections | Fetch elections |
-| POST   | /api/vote      | Cast vote       |
-| GET    | /api/results   | View results    |
-
----
-
-# 🧪 Sample Request
-
-## Register
-
-```id="l7qbnm"
-{
-  "email": "user@example.com",
-  "password": "secure123"
-}
+Authorization: Bearer <token>
 ```
 
 ---
 
-# 🧠 Core Concepts Implemented
+## Running Tests
 
-- Stateless Authentication (JWT)
-- Role-Based Authorization
-- Secure Password Handling
-- RESTful API Design
-- Layered Architecture (Controller → Service → Repository)
-- Data Integrity Constraints
+```bash
+mvn test
+```
 
----
-
-# 📊 Database Design
-
-## Users
-
-- id (Primary Key)
-- email (Unique)
-- password (Encrypted)
-- role (ADMIN / USER)
-
-## Elections
-
-- id
-- title
-- status
-
-## Candidates
-
-- id
-- name
-- election_id
-
-## Votes
-
-- id
-- user_id
-- candidate_id
+| Test | Coverage |
+|---|---|
+| `castVote_success` | Valid vote persisted correctly |
+| `castVote_electionNotActive_upcoming` | UPCOMING elections reject votes |
+| `castVote_electionNotActive_closed` | CLOSED elections reject votes |
+| `castVote_candidateNotInElection` | Cross-election candidate injection blocked |
+| `castVote_duplicateDetectedInApp` | Application-layer duplicate rejected |
+| `castVote_concurrentDuplicateRejectedByDb` | MongoDB index blocks race-condition duplicates |
+| `castVote_electionNotFound` | Non-existent election ID handled |
 
 ---
 
-# 🚀 Scalability & Design Highlights
+## Data Model
 
-- Modular architecture for easy scaling
-- Stateless backend (JWT-based)
-- Easily integrable with React / Angular frontend
-- Optimized for high concurrency voting scenarios
+**votes** — integrity enforced at the database level:
+```
+userId        String
+electionId    String
+candidateId   String
+castAt        LocalDateTime
 
----
+Index: { userId: 1, electionId: 1 }  unique: true
+```
 
-# 🔮 Future Enhancements
+**users**
+```
+email         String  (unique)
+password      String  (BCrypt)
+role          ROLE_USER | ROLE_ADMIN
+```
 
-- Aadhaar / OTP Verification
-- Blockchain-based Voting Ledger
-- Live Election Dashboard
-- AI-based Fraud Detection
-- Docker & Cloud Deployment (AWS / Azure)
-
----
-
-# 🤝 Contribution
-
-Contributions are welcome. Please fork the repository and submit a pull request.
-
----
-
-# 📜 License
-
-MIT License
+**elections**
+```
+title         String
+status        UPCOMING | ACTIVE | CLOSED
+startTime     LocalDateTime
+endTime       LocalDateTime
+```
 
 ---
 
-# 👨‍💻 Author
+## Security
 
-**Shobhit Jain**
+- Passwords hashed with BCrypt
+- Stateless authentication via signed JWT (HS256)
+- `JwtAuthFilter` validates every request before it reaches any controller
+- Role-based access control enforced at the route level via Spring Security
+- No stack traces exposed in error responses
+
+---
+
+
+## Author
+
+Shobhit Jain — [github.com/jshobhit13](https://github.com/jshobhit13)
