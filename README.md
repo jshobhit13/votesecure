@@ -210,7 +210,3 @@ endTime       LocalDateTime
 
 ---
 
-
-## Author
-
-Shobhit Jain — [github.com/jshobhit13](https://github.com/jshobhit13)
